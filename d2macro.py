@@ -15,7 +15,6 @@ from PIL import Image, ImageTk
 
 
 def _register_mei_cleanup():
-    import atexit
     import tempfile
     mei = getattr(sys, '_MEIPASS', None)
     if not mei:
@@ -38,7 +37,7 @@ def _register_mei_cleanup():
         if os.path.normcase(path) in running_meis:
             continue
         shutil.rmtree(path, ignore_errors=True)
-    atexit.register(shutil.rmtree, mei, True)
+    # _MEI 삭제는 _on_close()에서 cmd 지연 삭제로 처리
 
 _register_mei_cleanup()
 
@@ -261,7 +260,7 @@ class MacroEngine:
             self.log(f"TheDivision2.exe 창 발견 (hwnd={found.value:#010x})")
             _user32.SetForegroundWindow(found.value)
             _user32.BringWindowToTop(found.value)
-            time.sleep(0.3)
+            time.sleep(1.5)
         else:
             self.log("TheDivision2.exe 창 없음 — 포커스 생략")
 
@@ -393,7 +392,7 @@ class MacroEngine:
         self._focus_game()
         w(60); self._click()
         w(60); self._click()
-        w(60)
+        w(400)
         for _ in range(3):
             tap('c'); w(60)
 
@@ -903,6 +902,13 @@ class MacroApp:
             keyboard.unhook_all()
         except Exception:
             pass
+        mei = getattr(sys, '_MEIPASS', None)
+        if mei and os.path.isdir(mei):
+            subprocess.Popen(
+                f'cmd /c ping 127.0.0.1 -n 2 >nul 2>&1 & rmdir /s /q "{mei}"',
+                shell=True,
+                creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+            )
         self.root.destroy()
 
 
