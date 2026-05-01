@@ -520,7 +520,7 @@ class MacroApp:
         ), foreground="red", font=("맑은 고딕", 8), wraplength=int(540 * self._dpi_scale), justify="center")
         warn.pack(padx=PX, pady=(4, 0))
 
-        tk.Label(root, text="Made by Vepley.AMD (2026-04), v1.1",
+        tk.Label(root, text="Made by Vepley.AMD (2026-04), v1.2",
                  foreground="gray", font=("맑은 고딕", 8)).pack(padx=PX, pady=(0, 2))
 
         frame_hk = ttk.LabelFrame(root, text="핫키")
