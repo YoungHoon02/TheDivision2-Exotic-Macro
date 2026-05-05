@@ -126,7 +126,7 @@ CONFIG_PATH = os.path.join(_BASE_DIR, "config.json")
 
 DEFAULT_CONFIG = {
     "pixel_timeout": 60,
-    "tick_interval": 1,
+    "action_delay_ms": 60,
     "pixel_tolerance_pct": 5,
     "launcher_type": "uplay",
     "division2_path": "",
@@ -145,6 +145,8 @@ def load_config():
                 saved = json.load(f)
         except (json.JSONDecodeError, OSError):
             return json.loads(json.dumps(DEFAULT_CONFIG))
+        if "tick_interval" in saved:
+            del saved["tick_interval"]
         for k, v in DEFAULT_CONFIG.items():
             if k not in saved:
                 saved[k] = v
@@ -218,8 +220,7 @@ class MacroEngine:
 
         tr, tg, tb = target
         timeout = self.config["pixel_timeout"]
-        interval = self.config["tick_interval"]
-        self.log(f"[픽셀 대기] '{name}' 좌표=({x},{y}) 목표=#{tr:02X}{tg:02X}{tb:02X} 타임아웃={timeout}초 틱={interval}초")
+        self.log(f"[픽셀 대기] '{name}' 좌표=({x},{y}) 목표=#{tr:02X}{tg:02X}{tb:02X} 타임아웃={timeout}초")
         start = time.time()
 
         tick_count = 0
@@ -235,7 +236,7 @@ class MacroEngine:
                     self.log(f"[픽셀 폴링] '{name}' 현재=#{cr:02X}{cg:02X}{cb:02X} 목표=#{tr:02X}{tg:02X}{tb:02X} 경과={time.time()-start:.0f}초")
             except Exception as e:
                 self.log(f"[픽셀 읽기 오류] {e}")
-            time.sleep(interval)
+            time.sleep(1)
 
         if self.running:
             self.log(f"[픽셀 타임아웃] '{name}' {timeout}초 초과 — 다음 단계 진행 불가")
@@ -388,15 +389,16 @@ class MacroEngine:
         w = self._wait
         tap = self._tap
         press = self._press
+        ad = self.config["action_delay_ms"]
 
         self._focus_game()
-        w(60); self._click()
-        w(60); self._click()
+        w(ad); self._click()
+        w(ad); self._click()
         w(400)
         for _ in range(3):
-            tap('c'); w(60)
+            tap('c'); w(ad)
 
-        w(1200); tap('space'); w(60)
+        w(1200); tap('space'); w(ad)
         di_key_down('space'); w(1200); di_key_up('space')
 
         self.log("캐릭터 생성 화면 픽셀 대기")
@@ -439,11 +441,11 @@ class MacroEngine:
         w(500)
         self._focus_game()
         self.log("인게임 확인 — 이동 시퀀스 시작")
-        press('w', 2000); w(120)
-        press('a', 1000); w(120)
-        press('w', 3000); w(120)
-        press('a', 1000); w(120)
-        press('w', 1000); w(120)
+        press('w', 2000); w(ad + 60)
+        press('a', 1000); w(ad + 60)
+        press('w', 3000); w(ad + 60)
+        press('a', 1000); w(ad + 60)
+        press('w', 1000); w(ad + 60)
 
         press('f', 600); w(600)
         tap('e'); w(600)
@@ -454,10 +456,10 @@ class MacroEngine:
         tap('space'); w(1200)
 
         for _ in range(4):
-            tap('f'); w(60)
+            tap('f'); w(ad)
         w(600)
 
-        tap('q'); w(60)
+        tap('q'); w(ad)
         tap('q'); w(1200)
 
         press('tab', 1800); w(600)
@@ -519,7 +521,7 @@ class MacroApp:
         ), foreground="red", font=("맑은 고딕", 8), wraplength=int(540 * self._dpi_scale), justify="center")
         warn.pack(padx=PX, pady=(4, 0))
 
-        tk.Label(root, text="Made by Vepley.AMD (2026-04), v1.2",
+        tk.Label(root, text="Made by HaeMyo_GOAT.AMD (2026-04), v1.2.2",
                  foreground="gray", font=("맑은 고딕", 8)).pack(padx=PX, pady=(0, 2))
 
         frame_hk = ttk.LabelFrame(root, text="핫키")
@@ -564,9 +566,9 @@ class MacroApp:
         self.var_timeout = tk.IntVar(value=self.config["pixel_timeout"])
         ttk.Spinbox(frame_tm, from_=10, to=9999, textvariable=self.var_timeout, width=8).grid(row=0, column=1, padx=PX, pady=PY)
 
-        ttk.Label(frame_tm, text="틱 간격 (초):").grid(row=0, column=2, sticky="w", padx=PX, pady=PY)
-        self.var_tick = tk.DoubleVar(value=self.config["tick_interval"])
-        ttk.Spinbox(frame_tm, from_=0.1, to=10, increment=0.1, textvariable=self.var_tick, width=8).grid(row=0, column=3, padx=PX, pady=PY)
+        ttk.Label(frame_tm, text="동작 간격 (ms):").grid(row=0, column=2, sticky="w", padx=PX, pady=PY)
+        self.var_action_delay = tk.IntVar(value=self.config["action_delay_ms"])
+        ttk.Spinbox(frame_tm, from_=10, to=2000, increment=10, textvariable=self.var_action_delay, width=8).grid(row=0, column=3, padx=PX, pady=PY)
 
         ttk.Label(frame_tm, text="색상 오차 (%):").grid(row=1, column=0, sticky="w", padx=PX, pady=PY)
         self.var_tol = tk.IntVar(value=self.config["pixel_tolerance_pct"])
@@ -771,7 +773,7 @@ class MacroApp:
                     saved[k] = v
             self.config = saved
             self.var_timeout.set(self.config["pixel_timeout"])
-            self.var_tick.set(self.config["tick_interval"])
+            self.var_action_delay.set(self.config.get("action_delay_ms", 60))
             self.var_tol.set(self.config["pixel_tolerance_pct"])
             self.var_launcher.set(self.config.get("launcher_type", "uplay"))
             self.var_d2path.set(self.config["division2_path"])
@@ -792,7 +794,7 @@ class MacroApp:
 
     def _apply_to_config(self):
         self.config["pixel_timeout"] = self.var_timeout.get()
-        self.config["tick_interval"] = self.var_tick.get()
+        self.config["action_delay_ms"] = self.var_action_delay.get()
         self.config["pixel_tolerance_pct"] = self.var_tol.get()
         self.config["launcher_type"] = self.var_launcher.get()
         self.config["division2_path"] = self.var_d2path.get()
@@ -848,7 +850,7 @@ class MacroApp:
         self._apply_to_config()
         self._log_msg(f"매크로 시작 — 런처={self.config.get('launcher_type','uplay')} "
                       f"타임아웃={self.config['pixel_timeout']}초 "
-                      f"틱={self.config['tick_interval']}초 "
+                      f"동작간격={self.config['action_delay_ms']}ms "
                       f"오차={self.config['pixel_tolerance_pct']}%")
         self.engine = MacroEngine(
             self.config,
